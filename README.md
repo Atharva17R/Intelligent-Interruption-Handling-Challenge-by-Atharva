@@ -6,9 +6,9 @@
 This project implements a complete **interruption-detection layer** for real-time conversational agents.  
 The module classifies incoming STT events as:
 
-- `ignore_event`  
-- `delay_event`  
-- `interrupt_event`
+- `ignore_event`  Filler words  ["uh", "um", "hmm", "mm", "yeah", "okay", "ok", "huh", "hmmm"]
+- `delay_event`  Soft-interrupt keywords
+- `interrupt_event` Hard-interrupt keywords  ["wait", "hold", "hold on", "just a second", "give me a second"] ["stop", "cancel", "enough", "that's enough"]
 
 The logic is designed to handle fillers, interruption keywords, meaningful speech, confidence thresholds, timing windows, and agent state.
 
@@ -63,6 +63,34 @@ interruption_handling_cartesia/
                     
 
 # 🧠 Interruption Logic Overview
+Incoming STT + VAD Event
+          |
+          v
+ Normalize & Tokenize
+          |
+          v
+   Is Agent Speaking?
+        /       \
+      Yes        No
+       |          |
+       |        Forward user intent
+       |
+   ----- SPEAKING BRANCH -----
+   |
+   |-- Filler only? → ignore_event
+   |
+   |-- Contains interrupt keyword?
+   |         |
+   |         → interrupt_event
+   |
+   |-- Contains meaningful speech?
+   |         |
+   |         → interrupt_event
+   |
+   |-- Partial low-confidence?
+             |
+             → delay_event (wait for clarity)
+
 
 The handler evaluates STT events through:
 Interruption Logic – How It Works
@@ -105,6 +133,17 @@ The last N ms of STT final events used for delay-timeout decisions.
 | 7 | test_interrupt_detection                 | tests/unit/test_keywords.py                  | Interrupt keywords (“wait”, “stop”, “hold on”) detected |
 | 8 | test_normalize_tokenize                  | tests/unit/test_text_utils.py                | Text normalization + tokenization logic validated |
 
+| Test Case | Input                      | Agent State | Expected               | Result   |
+| --------- | -------------------------- | ----------- | ---------------------- | -------- |
+| 1         | "hmm"                      | SPEAKING    | Ignore                 | ✅ Passed |
+| 2         | "yeah wait a second"       | SPEAKING    | Interrupt              | ✅ Passed |
+| 3         | "yeah"                     | IDLE        | Forward                | ✅ Passed |
+| 4         | "stop"                     | SPEAKING    | Hard-stop              | ✅ Passed |
+| 5         | partial STT low confidence | SPEAKING    | Delay                  | ✅ Passed |
+| 6         | “um… wait…”                | SPEAKING    | Interrupt (keyword)    | ✅ Passed |
+| 7         | “okay okay okay”           | SPEAKING    | Ignore                 | ✅ Passed |
+| 8         | "what do you mean"         | SPEAKING    | Interrupt (meaningful) | ✅ Passed |
+
 ```
 cd voice_agents\interruption_handling_cartesia
 set PYTHONPATH=.\src
@@ -135,6 +174,15 @@ cat demo/example-logs.txt
 {"decision": "interrupt_event", "reason": "agent-idle-forward", "text": "yeah"}
 {"decision": "interrupt_event", "reason": "interruptKeyword:stop", "text": "stop"}
 ```
+{"t": 1764513157516, "agentState": "SPEAKING", "decision": "ignore_event", "reason": "all-filler", "text": "hmm", "ts": 1764513157615}
+{"t": 1764513158217, "agentState": "SPEAKING", "decision": "interrupt_event", "reason": "interruptKeyword:wait", "text": "yeah wait a second", "ts": 1764513158238}
+** HANDOVER TO USER ** {'decision': 'interrupt_event', 'reason': 'interruptKeyword:wait', 'text': 'yeah wait a second', 'ts': 1764513158238}
+
+{"t": 1764513159218, "agentState": "IDLE", "decision": "interrupt_event", "reason": "agent-idle-forward", "text": "yeah", "ts": 1764513159218}
+** HANDOVER TO USER ** {'decision': 'interrupt_event', 'reason': 'agent-idle-forward', 'text': 'yeah', 'ts': 1764513159218}
+
+{"t": 1764513160018, "agentState": "SPEAKING", "decision": "interrupt_event", "reason": "interruptKeyword:stop", "text": "stop", "ts": 1764513160018}
+** HANDOVER TO USER ** {'decision': 'interrupt_event', 'reason': 'interruptKeyword:stop', 'text': 'stop', 'ts': 1764513160018}
 
 ---
 
@@ -146,6 +194,7 @@ Video should show:
 2. Running demo  
 3. Showing logs  
  
+
 
 
 
