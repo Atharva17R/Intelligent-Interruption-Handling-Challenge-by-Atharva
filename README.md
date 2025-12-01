@@ -73,23 +73,26 @@ Incoming STT + VAD Event
         /       \
       Yes        No
        |          |
-       |        Forward user intent
+       |     Forward user intent
        |
    ----- SPEAKING BRANCH -----
    |
-   |-- Filler only? → ignore_event
+   |-- Filler only?
+   |        |
+   |        → ignore_event
    |
    |-- Contains interrupt keyword?
-   |         |
-   |         → interrupt_event
+   |        |
+   |        → interrupt_event
    |
    |-- Contains meaningful speech?
-   |         |
-   |         → interrupt_event
+   |        |
+   |        → interrupt_event
    |
    |-- Partial low-confidence?
-             |
-             → delay_event (wait for clarity)
+            |
+            → delay_event (wait for clarity)
+
 
 
 The handler evaluates STT events through:
@@ -174,15 +177,13 @@ cat demo/example-logs.txt
 {"decision": "interrupt_event", "reason": "agent-idle-forward", "text": "yeah"}
 {"decision": "interrupt_event", "reason": "interruptKeyword:stop", "text": "stop"}
 ```
-{"t": 1764513157516, "agentState": "SPEAKING", "decision": "ignore_event", "reason": "all-filler", "text": "hmm", "ts": 1764513157615}
-{"t": 1764513158217, "agentState": "SPEAKING", "decision": "interrupt_event", "reason": "interruptKeyword:wait", "text": "yeah wait a second", "ts": 1764513158238}
-** HANDOVER TO USER ** {'decision': 'interrupt_event', 'reason': 'interruptKeyword:wait', 'text': 'yeah wait a second', 'ts': 1764513158238}
+| Timestamp (t) | Agent State | Decision        | Reason                | Text                 | Action               |
+| ------------- | ----------- | --------------- | --------------------- | -------------------- | -------------------- |
+| 1764513157516 | SPEAKING    | ignore_event    | all-filler            | "hmm"                | —                    |
+| 1764513158217 | SPEAKING    | interrupt_event | interruptKeyword:wait | "yeah wait a second" | **HANDOVER TO USER** |
+| 1764513159218 | IDLE        | interrupt_event | agent-idle-forward    | "yeah"               | **HANDOVER TO USER** |
+| 1764513160018 | SPEAKING    | interrupt_event | interruptKeyword:stop | "stop"               | **HANDOVER TO USER** |
 
-{"t": 1764513159218, "agentState": "IDLE", "decision": "interrupt_event", "reason": "agent-idle-forward", "text": "yeah", "ts": 1764513159218}
-** HANDOVER TO USER ** {'decision': 'interrupt_event', 'reason': 'agent-idle-forward', 'text': 'yeah', 'ts': 1764513159218}
-
-{"t": 1764513160018, "agentState": "SPEAKING", "decision": "interrupt_event", "reason": "interruptKeyword:stop", "text": "stop", "ts": 1764513160018}
-** HANDOVER TO USER ** {'decision': 'interrupt_event', 'reason': 'interruptKeyword:stop', 'text': 'stop', 'ts': 1764513160018}
 
 ---
 
@@ -194,6 +195,7 @@ Video should show:
 2. Running demo  
 3. Showing logs  
  
+
 
 
 
